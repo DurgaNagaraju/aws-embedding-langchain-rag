@@ -1,3 +1,13 @@
+
+
+![image](https://github.com/user-attachments/assets/4a1099ed-ed02-4269-a9dc-723a26d163fc)
+
+
+
+
+
+
+
 Creating an HR Knowledge Base and Query System Using AWS Bedrock and LangChain
 Overview
 This project demonstrates how to create a knowledge base from a PDF document using AWS Bedrock embeddings and the LangChain library. The steps include loading and splitting a PDF, generating embeddings, creating a vector store, indexing the documents, and querying the indexed data using a language model.
