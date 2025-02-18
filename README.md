@@ -1,5 +1,11 @@
 # aws-embedding-langchain-rag
+https://www.cesvi.eu/wp-content/uploads/2019/08/Human-Resources-Policy.pdf
 
+pip install flask-sqlalchemy
+
+pip install pypdf
+
+pip install faiss-cpu
 
 Step-by-Step Pipeline for AWS Bedrock Embedding Model:
 1. Import Modules
