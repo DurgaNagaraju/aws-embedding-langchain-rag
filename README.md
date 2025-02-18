@@ -1,113 +1,168 @@
-# aws-embedding-langchain-rag
-https://www.cesvi.eu/wp-content/uploads/2019/08/Human-Resources-Policy.pdf
+Creating an HR Knowledge Base and Query System Using AWS Bedrock and LangChain
+Overview
+This project demonstrates how to create a knowledge base from a PDF document using AWS Bedrock embeddings and the LangChain library. The steps include loading and splitting a PDF, generating embeddings, creating a vector store, indexing the documents, and querying the indexed data using a language model.
 
-pip install flask-sqlalchemy
+# https://www.cesvi.eu/wp-content/uploads/2019/08/Human-Resources-Policy.pdf
 
-pip install pypdf
+# pip install flask-sqlalchemy
 
-pip install faiss-cpu
+# pip install pypdf
 
-Step-by-Step Pipeline for AWS Bedrock Embedding Model:
-1. Import Modules
+# pip install faiss-cpu
+
+
+
+Components and Flow
+Import Libraries: Import the necessary libraries and modules.
+
+Initialize Bedrock Client: Set up the AWS Bedrock client for creating embeddings.
+
+Load PDF Data: Load and split the PDF document.
+
+Text Splitting: Split the document into smaller chunks for better processing.
+
+Create Vector Store and Index: Store embeddings in a vector database and create an index for efficient searching.
+
+Connect to Bedrock LLM: Initialize the AWS Bedrock language model.
+
+Query Function: Query the knowledge base using the language model.
+
+Complete Pipeline Function: Execute the entire pipeline from loading the PDF to querying the knowledge base.
+
+Usage Example: Demonstrate the usage of the complete pipeline with example queries.
+
+# Code Explanation
 python
 import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import BedrockEmbeddings  # Ensure AWS credentials are configured
-from langchain.vectorstores import FAISS  # Using FAISS for vector store
-from langchain.indexes.vectorstore import VectorStoreIndexCreator
+from langchain_community.vectorstores import FAISS  # Corrected import for FAISS
+from langchain.vectorstores import VectorStore  # Importing VectorStore directly
 from langchain.llms import Bedrock  # For Bedrock LLM interaction
 from langchain.chains import RetrievalQA
-2. Define Data Source and Load Data
-python
-# Define the data source
-data_load = PyPDFLoader('https://www.cesvi.eu/wp-content/uploads/2019/08/Human-Resources-Policy.pdf')
-# Load and split the document
-documents = data_load.load_and_split()
-print(f"Number of documents loaded: {len(documents)}")
-print(documents[0])
-3. Split the Text
-python
-# Split the text based on characters, tokens, etc.
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,  # Adjust as needed
-    chunk_overlap=200,  # Adjust as needed
-    separators=["\n\n", "\n", " ", ""]
+import boto3
+
+# Initialize Bedrock client
+bedrock_client = boto3.client(
+    service_name='bedrock-runtime',
+    region_name='us-east-1'  # Replace with your region
 )
-split_documents = text_splitter.split_documents(documents)
-print(f"Number of documents after splitting: {len(split_documents)}")
-4. Create Embeddings
-python
-# Create embeddings with AWS Bedrock
-embeddings = BedrockEmbeddings(model_id="amazon.titan-embed-text-v1")  # Ensure AWS credentials are configured
-5a. Create Vector DB, Store Embeddings, and Index
-python
-# Create Vector DB and store embeddings
-db = FAISS.from_documents(split_documents, embeddings)  # Using FAISS for vector store
 
-# Create index for search
-index = VectorStoreIndexCreator().from_vectorstore(db)
-5b. Create Index for HR Report
-This step is part of the previous code block, where we already created the index for search.
+# 1. Configure Bedrock embeddings
+embeddings = BedrockEmbeddings(
+    client=bedrock_client,
+    model_id="amazon.titan-embed-text-v1"
+)
+Imports: Import necessary modules.
 
-5c. Wrap within a Function
+Bedrock Client: Initialize the AWS Bedrock client.
+
 python
-# Wrap index creation in a function
-def create_hr_index(pdf_url):
+# 2. Load and split the PDF
+def load_pdf_data(pdf_url):
     loader = PyPDFLoader(pdf_url)
-    docs = loader.load_and_split()
-    split_docs = text_splitter.split_documents(docs)
-    db = FAISS.from_documents(split_docs, embeddings)  # Using FAISS for vector store
-    index = VectorStoreIndexCreator().from_vectorstore(db)
-    return index
-6a. Write a Function to Connect to Bedrock Foundation Model
+    documents = loader.load_and_split()
+    print(f"Number of documents loaded: {len(documents)}")
+    return documents
+Load PDF Data: Function to load and split a PDF document using PyPDFLoader.
+
 python
-# Function to connect to Bedrock Foundation Model
-def connect_to_bedrock(model_id):  # Example: "titan-text-g1-express"
-    llm = Bedrock(model_id=model_id)  # Add region_name if needed
+# 3. Text splitting configuration
+def split_text(documents):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+        separators=["\n\n", "\n", " ", ""]
+    )
+    split_docs = text_splitter.split_documents(documents)
+    print(f"Number of split documents: {len(split_docs)}")
+    return split_docs
+Text Splitting: Function to split the text of the documents into smaller chunks for processing.
+
+python
+# 4 & 5. Create vector store and index
+def create_vector_index(split_docs):
+    vectorstore = FAISS.from_documents(
+        documents=split_docs,
+        embedding=embeddings
+    )
+    # No need for VectorStoreIndexCreator, directly use vectorstore
+    return vectorstore
+Create Vector Store and Index: Function to create a vector store from the split documents and generate embeddings.
+
+python
+# 6a. Connect to Bedrock LLM
+def initialize_bedrock_llm(model_id="amazon.titan-text-express-v1"):
+    llm = Bedrock(
+        client=bedrock_client,
+        model_id=model_id
+    )
     return llm
-6b. Write a Function for Search and LLM Interaction
+Connect to Bedrock LLM: Function to initialize the Bedrock language model.
+
 python
-# Function to query the HR document and interact with Bedrock LLM
-def query_hr_document(query, index, llm):
-    qa_chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=index.vectorstore.as_retriever())  # Using "stuff" chain type
-    result = qa_chain.run(query)
-    return result
-Example Usage
+# 6b. Query function
+def query_document(query, vectorstore, llm):
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=vectorstore.as_retriever(
+            search_kwargs={"k": 3}
+        )
+    )
+    return qa_chain.invoke(query)  # Use the invoke method instead of run
+Query Function: Function to query the vector store and use the Bedrock language model to get the answer.
+
 python
-# Create index for the HR document
-hr_index = create_hr_index('https://www.cesvi.eu/wp-content/uploads/2019/08/Human-Resources-Policy.pdf')
+# Complete pipeline function
+def create_hr_knowledge_base(pdf_url):
+    # Load and split documents
+    raw_documents = load_pdf_data(pdf_url)
+    
+    # Split text
+    split_documents = split_text(raw_documents)
+    
+    # Create vector store
+    vectorstore = create_vector_index(split_documents)
+    
+    # Initialize LLM
+    llm = initialize_bedrock_llm()
+    
+    return vectorstore, llm
+Complete Pipeline: Function to create the knowledge base by loading, splitting, embedding, and indexing the PDF document.
 
-# Connect to the Bedrock model
-bedrock_llm = connect_to_bedrock("titan-text-g1-express")  # Replace with your desired Bedrock model ID
+python
+# Usage example
+def main():
+    pdf_url = 'https://www.cesvi.eu/wp-content/uploads/2019/08/Human-Resources-Policy.pdf'
+    
+    # Create knowledge base
+    vectorstore, llm = create_hr_knowledge_base(pdf_url)
+    
+    # Example queries
+    queries = [
+        "What is the policy regarding sick leave?",
+        "How many casual leaves are allowed?"
+    ]
+    
+    # Run queries
+    for query in queries:
+        print(f"\nQuestion: {query}")
+        answer = query_document(query, vectorstore, llm)
+        print(f"Answer: {answer}")
 
-# User query example 1
-user_query = "What is the policy regarding sick leave?"
-answer = query_hr_document(user_query, hr_index, bedrock_llm)
-print(answer)
+if __name__ == "__main__":
+    main()
+Usage Example: Main function to create the knowledge base from a specified PDF URL and run example queries.
 
-# User query example 2
-user_query = "How many casual leaves are allowed?"
-answer = query_hr_document(user_query, hr_index, bedrock_llm)
-print(answer)
+Usage Instructions
+Ensure AWS Credentials: Make sure your AWS credentials are configured and have access to AWS Bedrock.
 
-# Example of using a different PDF and re-indexing
-# new_hr_index = create_hr_index("another_pdf_url.pdf")
-# new_answer = query_hr_document("What about maternity leave?", new_hr_index, bedrock_llm)
-# print(new_answer)
-Summary
-Import Modules: Import necessary libraries and modules.
+Install Dependencies: Install the necessary Python packages:
 
-Load Data: Load the PDF document.
+bash
+pip install boto3 langchain langchain_community
+Run the Script: Execute the script to create the knowledge base and run queries:
 
-Text Splitting: Split the document into smaller chunks.
-
-Create Embeddings: Generate embeddings using AWS Bedrock.
-
-Create Vector DB and Index: Store embeddings in a vector DB and create an index.
-
-Connect to Bedrock LLM: Function to connect to the AWS Bedrock model.
-
-Query and Interaction: Function to query the indexed document and interact with the LLM.
-
-This pipeline sets up the entire process from loading and processing the document to querying it and interacting with the language model. Make sure your AWS credentials are configured properly and you have access to the Bedrock models. Let me know if you have any further questions or need additional assistance!
+bash
